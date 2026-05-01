@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Varay · Hudu Dashboard Generator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', -apple-system, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
+
+  .app { display: grid; grid-template-columns: 420px 1fr; min-height: 100vh; }
+
+  /* ── LEFT PANEL ── */
+  .panel { background: #161b22; border-right: 1px solid #21262d; overflow-y: auto; display: flex; flex-direction: column; }
+  .panel-header { padding: 20px 24px 16px; border-bottom: 1px solid #21262d; position: sticky; top: 0; background: #161b22; z-index: 10; }
+  .panel-header h1 { font-size: 15px; font-weight: 700; color: #f0f6fc; }
+  .panel-header p { font-size: 11px; color: #6b7280; margin-top: 3px; }
+  .panel-body { padding: 16px 24px; flex: 1; }
+
+  .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #484f58; margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #21262d; }
+  .section-label:first-child { margin-top: 0; }
+
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 11px; color: #8b949e; margin-bottom: 4px; font-weight: 500; }
+  .field input, .field select { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 7px 10px; font-size: 12px; color: #f0f6fc; outline: none; transition: border-color .15s; font-family: inherit; }
+  .field input:focus, .field select:focus { border-color: #58a6ff; }
+  .field input::placeholder { color: #484f58; }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* Security toggles */
+  .sec-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+  .sec-toggle { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all .15s; user-select: none; }
+  .sec-toggle:hover { border-color: #484f58; }
+  .sec-toggle.active { border-color: var(--tc); background: var(--tbg); }
+  .sec-toggle .ico { font-size: 16px; margin-bottom: 3px; }
+  .sec-toggle .name { font-size: 10px; font-weight: 600; color: #f0f6fc; }
+  .sec-toggle .status { font-size: 9px; margin-top: 2px; color: #484f58; }
+  .sec-toggle.active .status { color: var(--tc); }
+
+  /* Generate button */
+  .gen-btn { width: 100%; padding: 11px; background: #238636; color: #fff; font-size: 13px; font-weight: 700; border: none; border-radius: 7px; cursor: pointer; margin-top: 20px; transition: background .15s; letter-spacing: .3px; }
+  .gen-btn:hover { background: #2ea043; }
+
+  /* Import/Export/New buttons */
+  .action-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 10px; }
+  .action-btn { padding: 7px 6px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer; border: 1px solid #30363d; background: #0d1117; color: #8b949e; transition: all .15s; text-align: center; }
+  .action-btn:hover { background: #21262d; color: #f0f6fc; border-color: #484f58; }
+  .action-btn.danger:hover { border-color: #f85149; color: #f85149; }
+  .toast { position: fixed; bottom: 20px; right: 20px; background: #1a3a1a; border: 1px solid #2ea043; color: #3fb950; padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; }
+  .toast.err { background: #3a1a1a; border-color: #f85149; color: #f85149; }
+  .client-name input { width: 100%; background: #0d1117; border: 1px solid #484f58; border-radius: 6px; padding: 8px 10px; font-size: 13px; font-weight: 600; color: #f0f6fc; outline: none; font-family: inherit; margin-bottom: 12px; }
+  .client-name input:focus { border-color: #58a6ff; }
+  .client-name input::placeholder { color: #484f58; font-weight: 400; }
+
+  /* ── RIGHT PANEL ── */
+  .output { background: #0d1117; display: flex; flex-direction: column; }
+  .output-header { padding: 16px 24px; border-bottom: 1px solid #21262d; display: flex; align-items: center; justify-content: space-between; background: #161b22; }
+  .output-header h2 { font-size: 13px; font-weight: 600; color: #f0f6fc; }
+  .output-tabs { display: flex; gap: 2px; }
+  .tab { padding: 5px 14px; font-size: 12px; border-radius: 5px; cursor: pointer; color: #8b949e; border: 1px solid transparent; transition: all .15s; background: none; }
+  .tab.active { background: #21262d; color: #f0f6fc; border-color: #30363d; }
+  .copy-btn { padding: 6px 14px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #f0f6fc; font-size: 12px; cursor: pointer; transition: all .15s; }
+  .copy-btn:hover { background: #30363d; }
+  .copy-btn.copied { background: #1a3a1a; border-color: #2ea043; color: #3fb950; }
+
+  .output-body { flex: 1; overflow: auto; }
+  #previewFrame { width: 100%; height: 100%; border: none; background: #1a1f2e; }
+  #codeView { display: none; padding: 20px 24px; font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 11px; color: #c9d1d9; white-space: pre-wrap; word-break: break-all; line-height: 1.6; background: #0d1117; min-height: 100%; }
+
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #484f58; text-align: center; padding: 40px; }
+  .empty-state .arrow { font-size: 32px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── LEFT: FORM ── -->
+  <div class="panel">
+    <div class="panel-header">
+      <h1>🛡️ Hudu Dashboard Generator</h1>
+      <p>Fill in client details → Generate → Copy → Paste into Hudu</p>
+    </div>
+    <div class="panel-body">
+
+      <!-- CLIENT NAME -->
+      <div class="client-name">
+        <input id="client_name" placeholder="Client Name (used for export filename)">
+      </div>
+
+      <!-- GLANCE: INFRASTRUCTURE -->
+      <div class="section-label">🔧 Environment at a Glance</div>
+
+      <div class="field">
+        <label>Firewall Management</label>
+        <select id="fw_managed">
+          <option value="local">🏢 Local Managed</option>
+          <option value="cloud">☁️ Cloud Managed</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>MFA Policy Enforcement</label>
+        <select id="mfa_policy">
+          <option value="ca">Enforced — Conditional Access</option>
+          <option value="gpo">Enforced — Group Policy</option>
+          <option value="partial">Partially Enforced</option>
+          <option value="none">Not Enforced</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Server Host / Hypervisor</label>
+          <input id="server_host" placeholder="Hyper-V / VMware / None">
+        </div>
+        <div class="field">
+          <label>VPN Type</label>
+          <input id="vpn" placeholder="SSLVPN / BOVPN / Both">
+        </div>
+      </div>
+      <div class="field">
+        <label>Active Directory Type</label>
+        <select id="ad_type">
+          <option value="hybrid">Hybrid (AD + Entra)</option>
+          <option value="onprem">On-Prem AD Only</option>
+          <option value="cloud">Cloud Only (Entra)</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+
+      <!-- SECURITY STACK -->
+      <div class="section-label">🔒 Security Stack</div>
+      <div class="sec-grid" id="secGrid">
+        <div class="sec-toggle" data-tool="s1" style="--tc:#fc8181;--tbg:rgba(252,129,129,.08)" onclick="toggleSec(this)">
+          <div class="ico">🔬</div><div class="name">SentinelOne</div><div class="status">✗ Off</div>
+        </div>
+        <div class="sec-toggle" data-tool="huntress" style="--tc:#fb923c;--tbg:rgba(251,146,60,.08)" onclick="toggleSec(this)">
+          <div class="ico">🕵️</div><div class="name">Huntress</div><div class="status">✗ Off</div>
+        </div>
+        <div class="sec-toggle" data-tool="cove_srv" style="--tc:#4ade80;--tbg:rgba(74,222,128,.08)" onclick="toggleSec(this)">
+          <div class="ico">💾</div><div class="name">Cove — Servers</div><div class="status">✗ Off</div>
+        </div>
+        <div class="sec-toggle" data-tool="cove_saa" style="--tc:#60a5fa;--tbg:rgba(96,165,250,.08)" onclick="toggleSec(this)">
+          <div class="ico">☁️</div><div class="name">Cove — SaaS</div><div class="status">✗ Off</div>
+        </div>
+        <div class="sec-toggle" data-tool="avanan" style="--tc:#60a5fa;--tbg:rgba(96,165,250,.08)" onclick="toggleSec(this)">
+          <div class="ico">📧</div><div class="name">Avanan</div><div class="status">✗ Off</div>
+        </div>
+        <div class="sec-toggle" data-tool="phin" style="--tc:#c084fc;--tbg:rgba(192,132,252,.08)" onclick="toggleSec(this)">
+          <div class="ico">🎣</div><div class="name">Phin</div><div class="status">✗ Off</div>
+        </div>
+        <div class="sec-toggle" data-tool="cs" style="--tc:#f59e0b;--tbg:rgba(245,158,11,.08)" onclick="toggleSec(this)">
+          <div class="ico">🔍</div><div class="name">ConnectSecure</div><div class="status">✗ Off</div>
+        </div>
+        <div class="sec-toggle" data-tool="authpoint" style="--tc:#f87171;--tbg:rgba(248,113,113,.08)" onclick="toggleSec(this)">
+          <div class="ico">🔐</div><div class="name">AuthPoint</div><div class="status">✗ Off</div>
+        </div>
+        <div class="sec-toggle" data-tool="dnsfilter" style="--tc:#6ee7b7;--tbg:rgba(110,231,183,.08)" onclick="toggleSec(this)">
+          <div class="ico">🔎</div><div class="name">DNSFilter</div><div class="status">✗ Off</div>
+        </div>
+      </div>
+
+      <!-- NETWORK -->
+      <div class="section-label">🔌 Network & Infrastructure</div>
+      <div class="field-row">
+        <div class="field"><label>Primary ISP</label><input id="isp_primary" placeholder="Lumen, AT&T..."></div>
+        <div class="field"><label>Backup ISP</label><input id="isp_backup" placeholder="AT&T, None..."></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Firewall Model</label><input id="fw_model" placeholder="T45 / M270 / Cloud..."></div>
+        <div class="field"><label>Network Notes</label><input id="net_notes" placeholder="BOVPN, 3 VLANs..."></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>ISP Link URL</label><input id="url_isp" placeholder="https://..."></div>
+        <div class="field"><label>Firewall Creds URL</label><input id="url_fw" placeholder="https://..."></div>
+      </div>
+      <div class="field"><label>Network Diagram URL</label><input id="url_net" placeholder="https://..."></div>
+
+      <!-- POWER & HARDWARE -->
+      <div class="section-label">⚡ Power & Hardware</div>
+      <div class="field-row">
+        <div class="field"><label>Power Provider</label><input id="power_co" placeholder="CPS, AEP..."></div>
+        <div class="field"><label>UPS Managed?</label><select id="ups_managed"><option>Yes</option><option>No</option></select></div>
+      </div>
+      <div class="field"><label>UPS Model</label><input id="ups_model" placeholder="APC Smart-UPS 1500..."></div>
+      <div class="field-row">
+        <div class="field"><label>iDRAC Deployed?</label><select id="idrac"><option>Yes</option><option>No</option></select></div>
+        <div class="field"><label>iDRAC URL</label><input id="url_idrac" placeholder="https://..."></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Power Map URL</label><input id="url_power" placeholder="https://..."></div>
+        <div class="field"><label>UPS Portal URL</label><input id="url_ups" placeholder="https://..."></div>
+      </div>
+
+      <!-- CLOUD & IDENTITY -->
+      <div class="section-label">☁️ Cloud & Identity</div>
+      <div class="field-row">
+        <div class="field"><label>M365 Tenant Domain</label><input id="m365_tenant" placeholder="client.onmicrosoft.com"></div>
+        <div class="field"><label>M365 Admin URL</label><input id="url_m365" placeholder="https://..."></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>AD Sync Server</label><input id="ad_server" placeholder="SVR-ADSYNC01"></div>
+        <div class="field"><label>Password Writeback</label><select id="writeback"><option>Enabled</option><option>Disabled</option><option>N/A</option></select></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Sync Creds URL</label><input id="url_sync" placeholder="https://..."></div>
+        <div class="field"><label>AuthPoint URL</label><input id="url_authpoint" placeholder="https://..."></div>
+      </div>
+
+      <!-- OPERATIONS -->
+      <div class="section-label">📋 Operations & Contacts</div>
+      <div class="field-row">
+        <div class="field"><label>Primary Contact</label><input id="poc_primary" placeholder="Jane Smith"></div>
+        <div class="field"><label>IT Contact</label><input id="poc_it" placeholder="John Doe"></div>
+      </div>
+      <div class="field"><label>Applications in Use</label><input id="apps" placeholder="SQL Server, Sage, Adobe..."></div>
+      <div class="field-row">
+        <div class="field"><label>Contact Link URL</label><input id="url_poc" placeholder="https://..."></div>
+        <div class="field"><label>Onboarding URL</label><input id="url_onboard" placeholder="https://..."></div>
+      </div>
+      <div class="field"><label>Applications URL</label><input id="url_apps" placeholder="https://..."></div>
+
+      <button class="gen-btn" onclick="generate()">⚡ Generate Dashboard HTML</button>
+      <div class="action-row">
+        <button class="action-btn" onclick="exportJSON()">📥 Export JSON</button>
+        <button class="action-btn" onclick="document.getElementById('importFile').click()">📤 Import JSON</button>
+        <button class="action-btn danger" onclick="newClient()">🗑 New Client</button>
+      </div>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+    </div>
+  </div>
+
+  <!-- ── RIGHT: OUTPUT ── -->
+  <div class="output">
+    <div class="output-header">
+      <h2>Output</h2>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="output-tabs">
+          <button class="tab active" onclick="switchTab('preview',this)">Preview</button>
+          <button class="tab" onclick="switchTab('code',this)">HTML</button>
+        </div>
+        <button class="copy-btn" id="copyBtn" onclick="copyHTML()">Copy HTML</button>
+      </div>
+    </div>
+    <div class="output-body" id="outputBody">
+      <iframe id="previewFrame"></iframe>
+      <pre id="codeView"></pre>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let generatedHTML = '';
+let currentTab = 'preview';
+
+function toggleSec(el) {
+  el.classList.toggle('active');
+  el.querySelector('.status').textContent = el.classList.contains('active') ? '✓ Active' : '✗ Off';
+}
+
+function val(id) { return document.getElementById(id)?.value?.trim() || ''; }
+function sel(id) { return document.getElementById(id)?.value || ''; }
+function isActive(tool) { return document.querySelector(`[data-tool="${tool}"]`)?.classList.contains('active'); }
+
+function secBadge(tool) {
+  const map = {
+    s1:      { icon:'🔬', name:'SentinelOne',   on:'#1a2e1a', onc:'#4ade80', off:'#374151', offc:'#9ca3af' },
+    huntress:{ icon:'🕵️', name:'Huntress',       on:'#2a1f0e', onc:'#fb923c', off:'#374151', offc:'#9ca3af' },
+    cove_srv:{ icon:'💾', name:'Cove — Servers', on:'#1a2e1a', onc:'#4ade80', off:'#374151', offc:'#9ca3af' },
+    cove_saa:{ icon:'☁️', name:'Cove — SaaS',    on:'#0e2030', onc:'#60a5fa', off:'#374151', offc:'#9ca3af' },
+    avanan:  { icon:'📧', name:'Avanan',         on:'#0e2030', onc:'#60a5fa', off:'#374151', offc:'#9ca3af' },
+    phin:    { icon:'🎣', name:'Phin',           on:'#22103a', onc:'#c084fc', off:'#374151', offc:'#9ca3af' },
+    cs:      { icon:'🔍', name:'ConnectSecure',  on:'#2a1e08', onc:'#f59e0b', off:'#374151', offc:'#9ca3af' },
+    authpoint:{ icon:'🔐', name:'AuthPoint',       on:'#2d1515', onc:'#f87171', off:'#374151', offc:'#9ca3af' },
+    dnsfilter:{ icon:'🔎', name:'DNSFilter',       on:'#0e2d20', onc:'#6ee7b7', off:'#374151', offc:'#9ca3af' },
+  };
+  const t = map[tool];
+  const active = isActive(tool);
+  const bg = active ? t.on : t.off;
+  const tc = active ? t.onc : t.offc;
+  const mark = active ? '✓ Active' : '✗ Not Deployed';
+  return `<td style="text-align:center;padding:4px;width:16%;"><div style="background:${bg};border-radius:6px;padding:6px 4px;"><div style="font-size:18px;margin-bottom:3px;">${t.icon}</div><div style="font-size:11px;font-weight:600;color:#f9fafb;">${t.name}</div><div style="font-size:10px;color:${tc};margin-top:2px;">${mark}</div></div></td><td style="width:1%;padding:2px;"></td>`;
+}
+
+function fwBadge() {
+  const cloud = sel('fw_managed') === 'cloud';
+  const bg = cloud ? '#0e2030' : '#1e3a5f';
+  const tc = cloud ? '#67e8f9' : '#60a5fa';
+  const label = cloud ? '☁️ Cloud Managed' : '🏢 Local Managed';
+  return `<span style="background:${bg};color:${tc};padding:2px 7px;border-radius:10px;white-space:nowrap;">${label}</span>`;
+}
+
+function mfaPolicyBadge() {
+  const map = {
+    ca:      { bg:'#1c3a2a', tc:'#4ade80', label:'✓ Conditional Access' },
+    gpo:     { bg:'#1e3a5f', tc:'#60a5fa', label:'✓ Group Policy' },
+    partial: { bg:'#2a1e08', tc:'#f59e0b', label:'⚠ Partial' },
+    none:    { bg:'#3a1a1a', tc:'#f87171', label:'✗ Not Enforced' },
+  };
+  const v = document.getElementById('mfa_policy')?.value || 'none';
+  const m = map[v] || map.none;
+  return `<span style="background:${m.bg};color:${m.tc};padding:2px 7px;border-radius:10px;white-space:nowrap;">${m.label}</span>`;
+}
+
+function adBadge() {
+  const type = sel('ad_type');
+  const map = {
+    hybrid: { bg:'#1c3a2a', tc:'#4ade80', label:'Hybrid (AD + Entra)' },
+    onprem: { bg:'#1e3a5f', tc:'#60a5fa', label:'On-Prem AD Only' },
+    cloud:  { bg:'#22103a', tc:'#c084fc', label:'Cloud Only (Entra)' },
+    none:   { bg:'#374151', tc:'#9ca3af', label:'None' },
+  };
+  const m = map[type] || map.none;
+  return `<span style="background:${m.bg};color:${m.tc};padding:2px 7px;border-radius:10px;white-space:nowrap;">${m.label}</span>`;
+}
+
+function card(borderColor, btnBg, btnTxt, icon, title, descHTML, btnLabel, url) {
+  const href = url || '#';
+  return `<div style="background:#252b3b;border-radius:7px;border-top:3px solid ${borderColor};padding:10px 11px;"><div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;"><span style="font-size:15px;line-height:1;">${icon}</span><span style="font-size:11px;font-weight:700;color:#f9fafb;">${title}</span></div><div style="font-size:10px;color:#9ca3af;line-height:1.55;min-height:28px;margin-bottom:9px;">${descHTML}</div><a href="${href}" style="display:block;text-align:center;padding:5px 6px;background:${btnBg};color:${btnTxt};font-size:10px;font-weight:700;text-decoration:none;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${btnLabel}</a></div>`;
+}
+
+function generate() {
+  const ispPrimary = val('isp_primary') || '—';
+  const ispBackup  = val('isp_backup')  || '—';
+  const fwModel    = val('fw_model')    || '—';
+  const fwMgd      = sel('fw_managed') === 'cloud' ? 'Cloud' : 'Local';
+  const netNotes   = val('net_notes')   || '—';
+  const mfaPolicyVal = sel('mfa_policy');
+  const vpn        = val('vpn')         || '—';
+  const powerCo    = val('power_co')    || '—';
+  const upsMgd     = sel('ups_managed');
+  const upsModel   = val('ups_model')   || '—';
+  const idrac      = sel('idrac');
+  const m365Tenant = val('m365_tenant') || '—';
+  const adServer   = val('ad_server')   || '—';
+  const writeback  = sel('writeback');
+  const pocPrimary = val('poc_primary') || '—';
+  const pocIT      = val('poc_it')      || '—';
+  const apps       = val('apps')        || '—';
+
+  generatedHTML = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#d1d5db;padding:4px 0;">
+
+  <div style="background:#252b3b;border-radius:8px;padding:14px 16px;margin-bottom:18px;">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#6b7280;margin-bottom:12px;">🔧 Environment at a Glance</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:12px;"><tr>
+      <td style="text-align:center;padding:6px 4px;width:auto;"><div style="font-size:10px;color:#6b7280;margin-bottom:4px;">Firewall</div><div style="font-size:12px;color:#f9fafb;font-weight:600;">WatchGuard</div><div style="font-size:10px;margin-top:3px;">${fwBadge()}</div></td>
+      <td style="border-left:1px solid #374151;width:1%;"></td>
+      <td style="text-align:center;padding:6px 4px;width:auto;"><div style="font-size:10px;color:#6b7280;margin-bottom:4px;">MFA Policy</div><div style="font-size:12px;color:#f9fafb;font-weight:600;">&nbsp;</div><div style="font-size:10px;margin-top:3px;">${mfaPolicyBadge()}</div></td>
+      <td style="border-left:1px solid #374151;width:1%;"></td>
+      <td style="text-align:center;padding:6px 4px;width:auto;"><div style="font-size:10px;color:#6b7280;margin-bottom:4px;">Server Host</div><div style="font-size:12px;color:#f9fafb;font-weight:600;">${val('server_host')||'—'}</div><div style="font-size:10px;margin-top:3px;">&nbsp;</div></td>
+      <td style="border-left:1px solid #374151;width:1%;"></td>
+      <td style="text-align:center;padding:6px 4px;width:auto;"><div style="font-size:10px;color:#6b7280;margin-bottom:4px;">VPN</div><div style="font-size:12px;color:#f9fafb;font-weight:600;">${vpn}</div><div style="font-size:10px;margin-top:3px;">&nbsp;</div></td>
+      <td style="border-left:1px solid #374151;width:1%;"></td>
+      <td style="text-align:center;padding:6px 4px;width:auto;"><div style="font-size:10px;color:#6b7280;margin-bottom:4px;">Active Directory</div><div style="font-size:12px;color:#f9fafb;font-weight:600;">&nbsp;</div><div style="font-size:10px;margin-top:3px;">${adBadge()}</div></td>
+    </tr></table>
+    <div style="border-top:1px solid #374151;margin-bottom:12px;"></div>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.1px;color:#6b7280;margin-bottom:8px;">Security Stack</div>
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed;"><tr>
+      ${secBadge('s1')}${secBadge('huntress')}${secBadge('cove_srv')}${secBadge('cove_saa')}${secBadge('avanan')}${secBadge('phin')}${secBadge('cs')}${secBadge('authpoint')}${secBadge('dnsfilter')}
+    </tr></table>
+  </div>
+
+  <table style="width:100%;border-collapse:separate;border-spacing:4px;margin-bottom:4px;"><tr>
+    <td style="width:25%;vertical-align:top;">${card('#3b82f6','#3b82f6','#fff','🌐','Internet Provider',`Primary: <strong style="color:#e5e7eb;">${ispPrimary}</strong><br>Backup: <strong style="color:#e5e7eb;">${ispBackup}</strong>`,'🔑 ISP Info &amp; Contacts',val('url_isp'))}</td>
+    <td style="width:25%;vertical-align:top;">${card('#ef4444','#ef4444','#fff','🛡️','Firewall',`Model: <strong style="color:#e5e7eb;">${fwModel}</strong><br>Managed: <strong style="color:#e5e7eb;">${fwMgd}</strong>`,'🔑 Firewall Credentials',val('url_fw'))}</td>
+    <td style="width:25%;vertical-align:top;">${card('#60a5fa','#60a5fa','#0d1117','🗺️','Network Diagram',netNotes,'🗺️ Network Diagram',val('url_net'))}</td>
+    <td style="width:25%;vertical-align:top;">${card('#f59e0b','#f59e0b','#0d1117','⚡','Power Provider',`Provider: <strong style="color:#e5e7eb;">${powerCo}</strong><br>&nbsp;`,'⚡ Power Outage Map',val('url_power'))}</td>
+  </tr></table>
+
+  <table style="width:100%;border-collapse:separate;border-spacing:4px;margin-bottom:4px;"><tr>
+    <td style="width:25%;vertical-align:top;">${card('#22c55e','#22c55e','#0d1117','🔋','UPS',`Managed: <strong style="color:#e5e7eb;">${upsMgd}</strong><br>Model: <strong style="color:#e5e7eb;">${upsModel}</strong>`,'🔑 UPS Portal',val('url_ups'))}</td>
+    <td style="width:25%;vertical-align:top;">${card('#a78bfa','#a78bfa','#0d1117','🖥️','iDRAC / Server Mgmt',`Deployed: <strong style="color:#e5e7eb;">${idrac}</strong><br>&nbsp;`,'🔑 iDRAC Login',val('url_idrac'))}</td>
+    <td style="width:25%;vertical-align:top;">${card('#06b6d4','#06b6d4','#0d1117','☁️','M365 Admin',`Tenant: <strong style="color:#e5e7eb;">${m365Tenant}</strong><br>Credential reference`,'🔑 365 Admin Login',val('url_m365'))}</td>
+    <td style="width:25%;vertical-align:top;">${card('#fb923c','#fb923c','#0d1117','🔄','AD / Entra Sync',`Server: <strong style="color:#e5e7eb;">${adServer}</strong><br>Writeback: <strong style="color:#e5e7eb;">${writeback}</strong>`,'🔑 Sync Credentials',val('url_sync'))}</td>
+  </tr></table>
+
+  <table style="width:100%;border-collapse:separate;border-spacing:4px;margin-bottom:4px;"><tr>
+    ${isActive('authpoint') ? `<td style="width:25%;vertical-align:top;">${card('#f87171','#f87171','#0d1117','🔐','AuthPoint MFA','SSLVPN &amp; Cloud Application access','🔑 AuthPoint Admin',val('url_authpoint'))}</td>` : ''}
+    <td style="width:25%;vertical-align:top;">${card('#c084fc','#c084fc','#0d1117','👥','Client POC(s)',`Primary: <strong style="color:#e5e7eb;">${pocPrimary}</strong><br>IT: <strong style="color:#e5e7eb;">${pocIT}</strong>`,'👥 Client Contacts',val('url_poc'))}</td>
+    <td style="width:25%;vertical-align:top;">${card('#67e8f9','#67e8f9','#0d1117','👤','New User Onboarding','Provisioning checklist &amp; naming convention','📋 New User Process',val('url_onboard'))}</td>
+    <td style="width:25%;vertical-align:top;">${card('#86efac','#86efac','#0d1117','📦','Applications',apps,'📦 Application Details',val('url_apps'))}</td>
+  </tr></table>
+
+  <div style="margin-top:6px;padding-top:10px;border-top:1px solid #374151;font-size:10px;color:#4b5563;display:flex;justify-content:space-between;">
+    <span>Varay Managed IT · Client Overview Template</span>
+    <span>Links → Hudu Password Records</span>
+  </div>
+
+</div>`;
+
+  // Update preview
+  const frame = document.getElementById('previewFrame');
+  frame.srcdoc = `<html><body style="background:#1a1f2e;padding:20px;margin:0;">${generatedHTML}</body></html>`;
+
+  // Update code view
+  document.getElementById('codeView').textContent = generatedHTML;
+
+  if (currentTab === 'code') document.getElementById('codeView').style.display = 'block';
+}
+
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('previewFrame').style.display = tab === 'preview' ? 'block' : 'none';
+  document.getElementById('codeView').style.display = tab === 'code' ? 'block' : 'none';
+}
+
+function copyHTML() {
+  if (!generatedHTML) return;
+  navigator.clipboard.writeText(generatedHTML).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy HTML'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function getFormData() {
+  const secTools = {};
+  document.querySelectorAll('.sec-toggle').forEach(el => {
+    secTools[el.dataset.tool] = el.classList.contains('active');
+  });
+  return {
+    client_name: val('client_name'),
+    fw_managed: sel('fw_managed'),
+    mfa_policy: sel('mfa_policy'),
+    server_host: val('server_host'),
+    vpn: val('vpn'),
+    ad_type: sel('ad_type'),
+    security: secTools,
+    isp_primary: val('isp_primary'),
+    isp_backup: val('isp_backup'),
+    fw_model: val('fw_model'),
+    net_notes: val('net_notes'),
+    url_isp: val('url_isp'),
+    url_fw: val('url_fw'),
+    url_net: val('url_net'),
+    power_co: val('power_co'),
+    ups_managed: sel('ups_managed'),
+    ups_model: val('ups_model'),
+    idrac: sel('idrac'),
+    url_idrac: val('url_idrac'),
+    url_power: val('url_power'),
+    url_ups: val('url_ups'),
+    m365_tenant: val('m365_tenant'),
+    url_m365: val('url_m365'),
+    ad_server: val('ad_server'),
+    writeback: sel('writeback'),
+    url_sync: val('url_sync'),
+    url_authpoint: val('url_authpoint'),
+    poc_primary: val('poc_primary'),
+    poc_it: val('poc_it'),
+    apps: val('apps'),
+    url_poc: val('url_poc'),
+    url_onboard: val('url_onboard'),
+    url_apps: val('url_apps'),
+  };
+}
+
+function loadFormData(data) {
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; };
+  const setSel = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; };
+  setVal('client_name', data.client_name);
+  setSel('fw_managed', data.fw_managed);
+  setSel('mfa_policy', data.mfa_policy);
+  setVal('server_host', data.server_host);
+  setVal('vpn', data.vpn);
+  setSel('ad_type', data.ad_type);
+  setVal('isp_primary', data.isp_primary);
+  setVal('isp_backup', data.isp_backup);
+  setVal('fw_model', data.fw_model);
+  setVal('net_notes', data.net_notes);
+  setVal('url_isp', data.url_isp);
+  setVal('url_fw', data.url_fw);
+  setVal('url_net', data.url_net);
+  setVal('power_co', data.power_co);
+  setSel('ups_managed', data.ups_managed);
+  setVal('ups_model', data.ups_model);
+  setSel('idrac', data.idrac);
+  setVal('url_idrac', data.url_idrac);
+  setVal('url_power', data.url_power);
+  setVal('url_ups', data.url_ups);
+  setVal('m365_tenant', data.m365_tenant);
+  setVal('url_m365', data.url_m365);
+  setVal('ad_server', data.ad_server);
+  setSel('writeback', data.writeback);
+  setVal('url_sync', data.url_sync);
+  setVal('url_authpoint', data.url_authpoint);
+  setVal('poc_primary', data.poc_primary);
+  setVal('poc_it', data.poc_it);
+  setVal('apps', data.apps);
+  setVal('url_poc', data.url_poc);
+  setVal('url_onboard', data.url_onboard);
+  setVal('url_apps', data.url_apps);
+  if (data.security) {
+    document.querySelectorAll('.sec-toggle').forEach(el => {
+      const tool = el.dataset.tool;
+      const active = data.security[tool];
+      el.classList.toggle('active', !!active);
+      el.querySelector('.status').textContent = active ? '✓ Active' : '✗ Off';
+    });
+  }
+}
+
+function exportJSON() {
+  const data = getFormData();
+  const name = data.client_name || 'client';
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name.toLowerCase().replace(/\s+/g, '-') + '-hudu-dashboard.json';
+  a.click();
+  showToast('✓ Exported — save this JSON to Egnyte securely');
+}
+
+function importJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      loadFormData(data);
+      showToast('✓ Client data loaded — click Generate to rebuild');
+    } catch {
+      showToast('✗ Invalid JSON file', true);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function newClient() {
+  if (!confirm('Clear all fields and start a new client?')) return;
+  document.querySelectorAll('.field input').forEach(el => el.value = '');
+  document.querySelectorAll('.field select').forEach(el => el.selectedIndex = 0);
+  document.querySelectorAll('.sec-toggle').forEach(el => {
+    el.classList.remove('active');
+    el.querySelector('.status').textContent = '✗ Off';
+  });
+  document.getElementById('client_name').value = '';
+  generatedHTML = '';
+  const frame = document.getElementById('previewFrame');
+  frame.srcdoc = `<html><body style="background:#1a1f2e;padding:40px;margin:0;font-family:sans-serif;color:#6b7280;text-align:center;"><p style="margin-top:100px;font-size:14px;">Fill in the form and click<br><strong style="color:#f0f6fc;">⚡ Generate Dashboard HTML</strong></p></body></html>`;
+  document.getElementById('codeView').textContent = '';
+  showToast('✓ Cleared — ready for new client');
+}
+
+function showToast(msg, err = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (err ? ' err' : '');
+  setTimeout(() => t.className = 'toast', 2800);
+}
+
+// Auto-generate on load with defaults shown
+window.onload = () => {
+  const frame = document.getElementById('previewFrame');
+  frame.srcdoc = `<html><body style="background:#1a1f2e;padding:40px;margin:0;font-family:sans-serif;color:#6b7280;text-align:center;"><p style="margin-top:100px;font-size:14px;">Fill in the form and click<br><strong style="color:#f0f6fc;">⚡ Generate Dashboard HTML</strong></p></body></html>`;
+};
+</script>
+<div class="toast" id="toast"></div>
+</body>
+</html>

@@ -7,7 +7,6 @@ A standalone offline tool for generating per-client Hudu company overview dashbo
 | File | Purpose |
 |------|---------|
 | `varay-dashboard-generator.html` | Form-based generator — fill in client details, toggle security stack, generate and copy HTML |
-| `varay-client-dashboard-v4.html` | Static template — manual version for clients where you prefer to edit HTML directly |
 
 ## How to Use — Generator
 
